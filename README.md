@@ -7,7 +7,9 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-orange)](https://www.mysql.com/)
 [![JWT](https://img.shields.io/badge/Auth-JWT%20HS512-yellow)](https://jwt.io/)
 
-**Languages:** [English](README.md) · [Deutsch](README-DE.md)
+**Languages:** [English](README.md) · [Türkçe](README_TR.md) · [Deutsch](README-DE.md)
+
+**Architecture:** [UML diagrams](architecture-uml.md)
 
 ---
 
@@ -25,6 +27,7 @@
 - [Swagger UI](#swagger-ui)
 - [CORS](#cors)
 - [Project Structure](#project-structure)
+- [Architecture](#architecture)
 
 ---
 
@@ -103,28 +106,29 @@ jwt.refresh-expiration=604800000
 | Table | Description |
 |---|---|
 | `users` | Accounts |
-| `roles` | `ADMIN`, `STUDENT`, `INSTRUCTOR` |
+| `roles` | `ADMIN`, `STUDENT` (seeded); `INSTRUCTOR` constant exists |
 | `user_roles` | User ↔ role join |
 | `goals` | Learning goals |
-| `milestones` | Sub-goals |
+| `milestones` | Sub-goals (linked to a goal or standalone) |
 | `study_sessions` | Timer / manual sessions |
 | `plan_sessions` | Planned sessions |
 | `login_history` | Login timestamps |
 | `app_settings` | App config (e.g. max session hours) |
-| `refresh_tokens` | Opaque refresh tokens (if present) |
+| `refresh_tokens` | Opaque refresh tokens |
 
 ---
 
 ## Default Users
 
-Seeded on startup if missing:
+Seeded on startup if missing (`DataInitializer`):
 
 | Username | Email | Password | Role |
 |---|---|---|---|
 | `admin` | admin@example.com | `admin` | ADMIN |
 | `student1` | student1@example.com | `student1` | STUDENT |
-| `egitmen` | egitmen@example.com | `egitmen` | INSTRUCTOR |
 | `erkan` | erkan@erkan.com | `12345` | ADMIN |
+
+Roles seeded: `ADMIN`, `STUDENT`. The `INSTRUCTOR` role name is defined in code and can be created via `/api/admin/roles`.
 
 Default setting: `max.session.hours = 6` (clamped range **6–24**).
 
@@ -452,23 +456,35 @@ Vite proxy (dev): `/api` → `http://127.0.0.1:8080`
 
 ```
 src/main/java/com/studymanager/
-├── config/                 # Security, DataInitializer, CORS
+├── config/                 # Security, DataInitializer, CORS, OpenAPI
+│   └── security/           # JwtAuthFilter, JwtUtils, SecurityConfig
 ├── controller/
-│   ├── admin/              # Users, roles, goals, approvals
+│   ├── admin/              # Approvals, roles, admin goals
 │   ├── auth/               # Login, refresh, register
-│   ├── config/             # Settings (admin + public)
-│   ├── goal/               # Goals & milestones
+│   ├── config/             # Settings (admin + authenticated)
+│   ├── goal/               # Goals & nested milestones
 │   ├── study/              # Sessions & plan sessions
-│   └── user/               # Login history (admin)
+│   └── user/               # Users & login history (admin)
 ├── dto/request|response/
 ├── entity/
 │   ├── config/             # AppSetting
 │   ├── goal/               # Goal, Milestone, GoalStatus
 │   ├── study/              # StudySession, PlanSession, enums
-│   └── user/               # User, Role, LoginHistory
+│   └── user/               # User, Role, LoginHistory, RefreshToken
 ├── repository/
+├── scheduler/              # GoalOverdueScheduler (daily OVERDUE job)
 └── service/
 ```
+
+---
+
+## Architecture
+
+Layered Spring Boot API: Controllers → Services → Repositories → MySQL.
+
+Auth is stateless JWT (access + refresh). Admin endpoints use `@PreAuthorize("hasAuthority('ADMIN')")`; plan sessions require `STUDENT`.
+
+Full diagrams (component, sequence, ER, package): **[architecture-uml.md](architecture-uml.md)**
 
 ---
 

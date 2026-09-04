@@ -7,7 +7,9 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-orange)](https://www.mysql.com/)
 [![JWT](https://img.shields.io/badge/Auth-JWT%20HS512-yellow)](https://jwt.io/)
 
-**Sprachen:** [English](README.md) · [Deutsch](README-DE.md)
+**Sprachen:** [English](README.md) · [Türkçe](README_TR.md) · [Deutsch](README-DE.md)
+
+**Architektur:** [UML-Diagramme](architecture-uml.md)
 
 ---
 
@@ -25,6 +27,7 @@
 - [Swagger UI](#swagger-ui)
 - [CORS](#cors)
 - [Projektstruktur](#projektstruktur)
+- [Architektur](#architektur)
 
 ---
 
@@ -103,28 +106,29 @@ jwt.refresh-expiration=604800000
 | Tabelle | Beschreibung |
 |---|---|
 | `users` | Benutzerkonten |
-| `roles` | `ADMIN`, `STUDENT`, `INSTRUCTOR` |
+| `roles` | `ADMIN`, `STUDENT` (Seed); Konstante `INSTRUCTOR` vorhanden |
 | `user_roles` | Benutzer ↔ Rolle |
 | `goals` | Lernziele |
-| `milestones` | Teilziele |
+| `milestones` | Teilziele (an Ziel gebunden oder eigenständig) |
 | `study_sessions` | Timer- / manuelle Sitzungen |
 | `plan_sessions` | Geplante Sitzungen |
 | `login_history` | Login-Zeitstempel |
 | `app_settings` | App-Konfiguration (z. B. max. Sitzungsdauer) |
-| `refresh_tokens` | Opaque Refresh-Tokens (falls vorhanden) |
+| `refresh_tokens` | Opaque Refresh-Tokens |
 
 ---
 
 ## Standardbenutzer
 
-Werden beim Start angelegt, falls nicht vorhanden:
+Werden beim Start angelegt, falls nicht vorhanden (`DataInitializer`):
 
 | Username | E-Mail | Passwort | Rolle |
 |---|---|---|---|
 | `admin` | admin@example.com | `admin` | ADMIN |
 | `student1` | student1@example.com | `student1` | STUDENT |
-| `egitmen` | egitmen@example.com | `egitmen` | INSTRUCTOR |
 | `erkan` | erkan@erkan.com | `12345` | ADMIN |
+
+Geseedete Rollen: `ADMIN`, `STUDENT`. Die Rolle `INSTRUCTOR` ist im Code definiert und kann über `/api/admin/roles` angelegt werden.
 
 Standardeinstellung: `max.session.hours = 6` (Bereich **6–24**).
 
@@ -452,23 +456,35 @@ Vite-Proxy (Dev): `/api` → `http://127.0.0.1:8080`
 
 ```
 src/main/java/com/studymanager/
-├── config/                 # Security, DataInitializer, CORS
+├── config/                 # Security, DataInitializer, CORS, OpenAPI
+│   └── security/           # JwtAuthFilter, JwtUtils, SecurityConfig
 ├── controller/
-│   ├── admin/              # Benutzer, Rollen, Ziele, Freigaben
+│   ├── admin/              # Freigaben, Rollen, Admin-Ziele
 │   ├── auth/               # Login, Refresh, Register
-│   ├── config/             # Settings (Admin + öffentlich)
-│   ├── goal/               # Goals & Milestones
+│   ├── config/             # Settings (Admin + authentifiziert)
+│   ├── goal/               # Goals & verschachtelte Milestones
 │   ├── study/              # Sessions & Plan Sessions
-│   └── user/               # Login-Historie (Admin)
+│   └── user/               # Benutzer & Login-Historie (Admin)
 ├── dto/request|response/
 ├── entity/
 │   ├── config/             # AppSetting
 │   ├── goal/               # Goal, Milestone, GoalStatus
 │   ├── study/              # StudySession, PlanSession, Enums
-│   └── user/               # User, Role, LoginHistory
+│   └── user/               # User, Role, LoginHistory, RefreshToken
 ├── repository/
+├── scheduler/              # GoalOverdueScheduler (täglicher OVERDUE-Job)
 └── service/
 ```
+
+---
+
+## Architektur
+
+Geschichtete Spring-Boot-API: Controllers → Services → Repositories → MySQL.
+
+Auth ist zustandsloses JWT (Access + Refresh). Admin-Endpunkte nutzen `@PreAuthorize("hasAuthority('ADMIN')")`; Plan-Sessions erfordern `STUDENT`.
+
+Vollständige Diagramme (Komponenten, Sequenz, ER, Pakete): **[architecture-uml.md](architecture-uml.md)**
 
 ---
 
